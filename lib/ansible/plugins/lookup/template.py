@@ -111,12 +111,6 @@ class LookupModule(LookupBase):
                     searchpath = newsearchpath
                 searchpath.insert(0, os.path.dirname(lookupfile))
 
-                self._templar.environment.loader.searchpath = searchpath
-                if variable_start_string is not None:
-                    self._templar.environment.variable_start_string = variable_start_string
-                if variable_end_string is not None:
-                    self._templar.environment.variable_end_string = variable_end_string
-
                 # The template will have access to all existing variables,
                 # plus some added by ansible (e.g., template_{path,mtime}),
                 # plus anything passed to the lookup with the template_vars=
@@ -124,7 +118,6 @@ class LookupModule(LookupBase):
                 vars = deepcopy(variables)
                 vars.update(generate_ansible_template_vars(lookupfile))
                 vars.update(lookup_template_vars)
-                self._templar.available_variables = vars
 
                 with templar.set_temporary_context(variable_start_string=variable_start_string,
                                                    variable_end_string=variable_end_string,
@@ -140,8 +133,5 @@ class LookupModule(LookupBase):
                 ret.append(res)
             else:
                 raise AnsibleError("the template file %s could not be found for the lookup" % term)
-
-        # restore old variables
-        self._templar.available_variables = old_vars
 
         return ret
