@@ -13,8 +13,14 @@ import types
 from jinja2._compat import text_type
 
 from jinja2.runtime import StrictUndefined
+from ansible.module_utils.common.collections import is_sequence, Mapping
+from ansible.module_utils.six import PY2, text_type
 from ansible.parsing.yaml.objects import AnsibleVaultEncryptedUnicode
 from ansible.utils.native_jinja import NativeJinjaText
+
+
+class NativeJinjaText(text_type):
+    pass
 
 
 def _fail_on_undefined(data):
@@ -73,8 +79,14 @@ def ansible_native_concat(nodes):
             # We do that only here because it is taken care of by text_type() in the else block below already.
             str(out)
 
-        # short circuit literal_eval when possible
-        if not isinstance(out, list):
+        if isinstance(out, NativeJinjaText):
+            # Sometimes (e.g. ``| string``) we need to mark variables
+            # in a special way so that they remain strings and are not
+            # passed into literal_eval.
+            # See:
+            # https://github.com/ansible/ansible/issues/70831
+            # https://github.com/pallets/jinja/issues/1200
+            # https://github.com/ansible/ansible/issues/70831#issuecomment-664190894
             return out
     else:
         if isinstance(nodes, types.GeneratorType):

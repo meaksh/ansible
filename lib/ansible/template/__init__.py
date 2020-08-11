@@ -71,8 +71,6 @@ NON_TEMPLATED_TYPES = (bool, Number)
 JINJA2_OVERRIDE = '#jinja2:'
 
 from jinja2 import __version__ as j2_version
-from jinja2 import Environment
-from jinja2.utils import concat as j2_concat
 
 
 USE_JINJA2_NATIVE = False
@@ -256,6 +254,10 @@ def _unroll_iterator(func):
             return list(ret)
         return ret
 
+    return _update_wrapper(wrapper, func)
+
+
+def _update_wrapper(wrapper, func):
     # This code is duplicated from ``functools.update_wrapper`` from Py3.7.
     # ``functools.update_wrapper`` was failing when the func was ``functools.partial``
     for attr in ('__module__', '__name__', '__qualname__', '__doc__', '__annotations__'):
@@ -269,6 +271,19 @@ def _unroll_iterator(func):
         getattr(wrapper, attr).update(getattr(func, attr, {}))
     wrapper.__wrapped__ = func
     return wrapper
+
+
+def _wrap_native_text(func):
+    """Wrapper function, that intercepts the result of a filter
+    and wraps it into NativeJinjaText which is then used
+    in ``ansible_native_concat`` to indicate that it is a text
+    which should not be passed into ``literal_eval``.
+    """
+    def wrapper(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        return NativeJinjaText(ret)
+
+    return _update_wrapper(wrapper, func)
 
 
 class AnsibleUndefined(StrictUndefined):
