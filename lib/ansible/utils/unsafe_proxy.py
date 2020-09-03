@@ -57,6 +57,7 @@ from ansible.module_utils._text import to_bytes, to_text
 from ansible.module_utils.common._collections_compat import Mapping, Set
 from ansible.module_utils.common.collections import is_sequence
 from ansible.module_utils.six import string_types, binary_type, text_type
+from ansible.utils.native_jinja import NativeJinjaText
 
 
 __all__ = ['AnsibleUnsafe', 'wrap_var']
@@ -331,6 +332,10 @@ class NativeJinjaUnsafeText(NativeJinjaText, AnsibleUnsafeText):
     pass
 
 
+class NativeJinjaUnsafeText(NativeJinjaText, AnsibleUnsafeText):
+    pass
+
+
 class UnsafeProxy(object):
     def __new__(cls, obj, *args, **kwargs):
         from ansible.utils.display import Display
@@ -376,6 +381,8 @@ def wrap_var(v):
         v = _wrap_set(v)
     elif is_sequence(v):
         v = _wrap_sequence(v)
+    elif isinstance(v, NativeJinjaText):
+        v = NativeJinjaUnsafeText(v)
     elif isinstance(v, binary_type):
         v = AnsibleUnsafeBytes(v)
     elif isinstance(v, text_type):

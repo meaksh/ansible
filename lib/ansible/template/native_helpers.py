@@ -14,6 +14,30 @@ from jinja2._compat import text_type
 
 from jinja2.runtime import StrictUndefined
 from ansible.parsing.yaml.objects import AnsibleVaultEncryptedUnicode
+from ansible.utils.native_jinja import NativeJinjaText
+
+
+def _fail_on_undefined(data):
+    """Recursively find an undefined value in a nested data structure
+    and properly raise the undefined exception.
+    """
+    if isinstance(data, Mapping):
+        for value in data.values():
+            _fail_on_undefined(value)
+    elif is_sequence(data):
+        for item in data:
+            _fail_on_undefined(item)
+    else:
+        if isinstance(data, StrictUndefined):
+            # To actually raise the undefined exception we need to
+            # access the undefined object otherwise the exception would
+            # be raised on the next access which might not be properly
+            # handled.
+            # See https://github.com/ansible/ansible/issues/52158
+            # and StrictUndefined implementation in upstream Jinja2.
+            str(data)
+
+    return data
 
 
 def ansible_native_concat(nodes):
