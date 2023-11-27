@@ -41,7 +41,7 @@ from random import Random, SystemRandom, shuffle
 from jinja2.filters import environmentfilter, do_groupby as _do_groupby
 
 from ansible.errors import AnsibleError, AnsibleFilterError, AnsibleFilterTypeError
-from ansible.module_utils.six import iteritems, string_types, integer_types, reraise
+from ansible.module_utils.six import iteritems, string_types, integer_types, reraise, text_type
 from ansible.module_utils.six.moves import reduce, shlex_quote
 from ansible.module_utils._text import to_bytes, to_native, to_text
 from ansible.module_utils.common.collections import is_sequence
@@ -53,6 +53,7 @@ from ansible.utils.display import Display
 from ansible.utils.encrypt import passlib_or_crypt
 from ansible.utils.hashing import md5s, checksum_s
 from ansible.utils.unicode import unicode_wrap
+from ansible.utils.unsafe_proxy import _is_unsafe
 from ansible.utils.vars import merge_hash
 
 display = Display()
@@ -207,13 +208,23 @@ def regex_escape(string, re_type='python'):
 
 def from_yaml(data):
     if isinstance(data, string_types):
-        return yaml.safe_load(data)
+        # The ``text_type`` call here strips any custom
+        # string wrapper class, so that CSafeLoader can
+        # read the data
+        if _is_unsafe(data):
+            data = data._strip_unsafe()
+        return yaml_load(text_type(to_text(data, errors='surrogate_or_strict')))
     return data
 
 
 def from_yaml_all(data):
     if isinstance(data, string_types):
-        return yaml.safe_load_all(data)
+        # The ``text_type`` call here strips any custom
+        # string wrapper class, so that CSafeLoader can
+        # read the data
+        if _is_unsafe(data):
+            data = data._strip_unsafe()
+        return yaml_load_all(text_type(to_text(data, errors='surrogate_or_strict')))
     return data
 
 

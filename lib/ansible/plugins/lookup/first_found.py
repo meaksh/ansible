@@ -110,6 +110,29 @@ from ansible.module_utils.parsing.convert_bool import boolean
 from ansible.plugins.lookup import LookupBase
 
 
+def _splitter(value, chars):
+    chars = set(chars)
+    v = ''
+    for c in value:
+        if c in chars:
+            yield v
+            v = ''
+            continue
+        v += c
+    yield v
+
+
+def _split_on(terms, spliters=','):
+    termlist = []
+    if isinstance(terms, string_types):
+        termlist = list(_splitter(terms, spliters))
+    else:
+        # added since options will already listify
+        for t in terms:
+            termlist.extend(_split_on(t, spliters))
+    return termlist
+
+
 class LookupModule(LookupBase):
 
     def run(self, terms, variables, **kwargs):

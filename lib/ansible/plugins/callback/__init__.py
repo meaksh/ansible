@@ -22,6 +22,7 @@ __metaclass__ = type
 import difflib
 import json
 import os
+import re
 import sys
 import warnings
 
@@ -29,12 +30,15 @@ from copy import deepcopy
 
 from ansible import constants as C
 from ansible.module_utils.common._collections_compat import MutableMapping
-from ansible.module_utils.six import PY3
+from ansible.module_utils.six import PY3, text_type
 from ansible.module_utils._text import to_text
 from ansible.parsing.ajson import AnsibleJSONEncoder
+from ansible.parsing.yaml.dumper import AnsibleDumper
+from ansible.parsing.yaml.objects import AnsibleUnicode
 from ansible.plugins import AnsiblePlugin, get_plugin_class
 from ansible.utils.color import stringc
 from ansible.utils.display import Display
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText, NativeJinjaUnsafeText, _is_unsafe
 from ansible.vars.clean import strip_internal_keys, module_response_deepcopy
 
 if PY3:
@@ -51,6 +55,90 @@ __all__ = ["CallbackBase"]
 
 
 _DEBUG_ALLOWED_KEYS = frozenset(('msg', 'exception', 'warnings', 'deprecations'))
+_YAML_TEXT_TYPES = (text_type, AnsibleUnicode, AnsibleUnsafeText, NativeJinjaUnsafeText)
+# Characters that libyaml/pyyaml consider breaks
+_YAML_BREAK_CHARS = '\n\x85\u2028\u2029'  # NL, NEL, LS, PS
+# regex representation of libyaml/pyyaml of a space followed by a break character
+_SPACE_BREAK_RE = re.compile(fr' +([{_YAML_BREAK_CHARS}])')
+
+
+class _AnsibleCallbackDumper(AnsibleDumper):
+    def __init__(self, lossy=False):
+        self._lossy = lossy
+
+    def __call__(self, *args, **kwargs):
+        # pyyaml expects that we are passing an object that can be instantiated, but to
+        # smuggle the ``lossy`` configuration, we do that in ``__init__`` and then
+        # define this ``__call__`` that will mimic the ability for pyyaml to instantiate class
+        super().__init__(*args, **kwargs)
+        return self
+
+
+def _should_use_block(scalar):
+    """Returns true if string should be in block format based on the existence of various newline separators"""
+    # This method of searching is faster than using a regex
+    for ch in _YAML_BREAK_CHARS:
+        if ch in scalar:
+            return True
+    return False
+
+
+class _SpecialCharacterTranslator:
+    def __getitem__(self, ch):
+        # "special character" logic from pyyaml yaml.emitter.Emitter.analyze_scalar, translated to decimal
+        # for perf w/ str.translate
+        if (ch == 10 or
+            32 <= ch <= 126 or
+            ch == 133 or
+            160 <= ch <= 55295 or
+            57344 <= ch <= 65533 or
+            65536 <= ch < 1114111)\
+                and ch != 65279:
+            return ch
+        return None
+
+
+def _filter_yaml_special(scalar):
+    """Filter a string removing any character that libyaml/pyyaml declare as special"""
+    return scalar.translate(_SpecialCharacterTranslator())
+
+
+def _munge_data_for_lossy_yaml(scalar):
+    """Modify a string so that analyze_scalar in libyaml/pyyaml will allow block formatting"""
+    # we care more about readability than accuracy, so...
+    # ...libyaml/pyyaml does not permit trailing spaces for block scalars
+    scalar = scalar.rstrip()
+    # ...libyaml/pyyaml does not permit tabs for block scalars
+    scalar = scalar.expandtabs()
+    # ...libyaml/pyyaml only permits special characters for double quoted scalars
+    scalar = _filter_yaml_special(scalar)
+    # ...libyaml/pyyaml only permits spaces followed by breaks for double quoted scalars
+    return _SPACE_BREAK_RE.sub(r'\1', scalar)
+
+
+def _pretty_represent_str(self, data):
+    """Uses block style for multi-line strings"""
+    if _is_unsafe(data):
+        data = data._strip_unsafe()
+    data = text_type(data)
+    if _should_use_block(data):
+        style = '|'
+        if self._lossy:
+            data = _munge_data_for_lossy_yaml(data)
+    else:
+        style = self.default_style
+
+    node = yaml.representer.ScalarNode('tag:yaml.org,2002:str', data, style=style)
+    if self.alias_key is not None:
+        self.represented_objects[self.alias_key] = node
+    return node
+
+
+for data_type in _YAML_TEXT_TYPES:
+    _AnsibleCallbackDumper.add_representer(
+        data_type,
+        _pretty_represent_str
+    )
 
 
 class CallbackBase(AnsiblePlugin):

@@ -21,9 +21,9 @@ __metaclass__ = type
 
 import yaml
 
-from ansible.module_utils.six import PY3
+from ansible.module_utils.six import PY3, text_type
 from ansible.parsing.yaml.objects import AnsibleUnicode, AnsibleSequence, AnsibleMapping, AnsibleVaultEncryptedUnicode
-from ansible.utils.unsafe_proxy import AnsibleUnsafeText, AnsibleUnsafeBytes
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText, AnsibleUnsafeBytes, _is_unsafe
 from ansible.vars.hostvars import HostVars, HostVarsVars
 
 
@@ -44,12 +44,29 @@ def represent_vault_encrypted_unicode(self, data):
     return self.represent_scalar(u'!vault', data._ciphertext.decode(), style='|')
 
 
-if PY3:
-    represent_unicode = yaml.representer.SafeRepresenter.represent_str
-    represent_binary = yaml.representer.SafeRepresenter.represent_binary
-else:
-    represent_unicode = yaml.representer.SafeRepresenter.represent_unicode
-    represent_binary = yaml.representer.SafeRepresenter.represent_str
+def represent_unicode(self, data):
+    if _is_unsafe(data):
+        data = data._strip_unsafe()
+    if PY3:
+        return yaml.representer.SafeRepresenter.represent_str(self, text_type(data))
+    else:
+        return yaml.representer.SafeRepresenter.represent_unicode(self, text_type(data))
+
+
+def represent_binary(self, data):
+    if _is_unsafe(data):
+        data = data._strip_unsafe()
+    if PY3:
+        return yaml.representer.SafeRepresenter.represent_binary(self, binary_type(data))
+    else:
+        return yaml.representer.SafeRepresenter.represent_str(self, text_type(data))
+
+
+def represent_undefined(self, data):
+    # Here bool will ensure _fail_with_undefined_error happens
+    # if the value is Undefined.
+    # This happens because Jinja sets __bool__ on StrictUndefined
+    return bool(data)
 
 AnsibleDumper.add_representer(
     AnsibleUnicode,

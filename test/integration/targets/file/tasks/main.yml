@@ -719,7 +719,7 @@
     that:
       - "file_error3 is failed"
       - "file_error3.msg == 'src does not exist'"
-      - "file_error3.dest == '{{ output_dir }}/hard.txt' | expanduser"
+      - "file_error3.dest == remote_tmp_dir_test | expanduser ~ '/hard.txt'"
       - "file_error3.src == 'non-existing-file-that-does-not-exist.txt'"
 
 - block:

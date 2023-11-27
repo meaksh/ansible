@@ -26,6 +26,7 @@ from ansible.parsing.yaml import dumper, objects
 from ansible.parsing.yaml.loader import AnsibleLoader
 from ansible.module_utils.six import PY2
 from ansible.utils.unsafe_proxy import AnsibleUnsafeText, AnsibleUnsafeBytes
+from ansible.template import AnsibleUndefined
 
 from units.mock.yaml_helper import YamlTestUtils
 from units.mock.vault_helper import TextVaultSecret
@@ -64,8 +65,7 @@ class TestAnsibleDumper(unittest.TestCase, YamlTestUtils):
 
     def test_bytes(self):
         b_text = u'tréma'.encode('utf-8')
-        unsafe_object = AnsibleUnsafeBytes(b_text)
-        yaml_out = self._dump_string(unsafe_object, dumper=self.dumper)
+        yaml_out = self._dump_string(b_text, dumper=self.dumper)
 
         stream = self._build_stream(yaml_out)
         loader = self._loader(stream)
@@ -92,8 +92,7 @@ class TestAnsibleDumper(unittest.TestCase, YamlTestUtils):
 
     def test_unicode(self):
         u_text = u'nöel'
-        unsafe_object = AnsibleUnsafeText(u_text)
-        yaml_out = self._dump_string(unsafe_object, dumper=self.dumper)
+        yaml_out = self._dump_string(u_text, dumper=self.dumper)
 
         stream = self._build_stream(yaml_out)
         loader = self._loader(stream)
