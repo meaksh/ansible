@@ -318,10 +318,6 @@ class PlayContext(Base):
             if not new_info.connection_user:
                 new_info.connection_user = new_info.remote_user
 
-        # set no_log to default if it was not previously set
-        if new_info.no_log is None:
-            new_info.no_log = C.DEFAULT_NO_LOG
-
         if task.check_mode is not None:
             new_info.check_mode = task.check_mode
 
