@@ -71,6 +71,8 @@ NON_TEMPLATED_TYPES = (bool, Number)
 JINJA2_OVERRIDE = '#jinja2:'
 
 from jinja2 import __version__ as j2_version
+from jinja2 import Environment
+from jinja2.utils import concat as j2_concat
 
 
 USE_JINJA2_NATIVE = False
@@ -587,6 +589,15 @@ class Templar:
             finalize=self._finalize,
             loader=FileSystemLoader(self._basedir),
         )
+
+        # jinja2 global is inconsistent across versions, this normalizes them
+        self.environment.globals['dict'] = dict
+
+        # Custom globals
+        self.environment.globals['lookup'] = self._lookup
+        self.environment.globals['query'] = self.environment.globals['q'] = self._query_lookup
+        self.environment.globals['now'] = self._now_datetime
+        self.environment.globals['finalize'] = self._finalize
 
         # the current rendering context under which the templar class is working
         self.cur_context = None

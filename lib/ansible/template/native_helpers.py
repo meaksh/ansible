@@ -88,6 +88,10 @@ def ansible_native_concat(nodes):
             # https://github.com/pallets/jinja/issues/1200
             # https://github.com/ansible/ansible/issues/70831#issuecomment-664190894
             return out
+
+        # short circuit literal_eval when possible
+        if not isinstance(out, list):
+            return out
     else:
         if isinstance(nodes, types.GeneratorType):
             nodes = chain(head, nodes)
