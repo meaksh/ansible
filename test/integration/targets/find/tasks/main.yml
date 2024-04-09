@@ -16,13 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-- set_fact: output_dir_test={{output_dir}}/test_find
+- set_fact: remote_tmp_dir_test={{output_dir}}/test_find
 
 - name: make sure our testing sub-directory does not exist
-  file: path="{{ output_dir_test }}" state=absent
+  file: path="{{ remote_tmp_dir_test }}" state=absent
 
 - name: create our testing sub-directory
-  file: path="{{ output_dir_test }}" state=directory
+  file: path="{{ remote_tmp_dir_test }}" state=directory
 
 ##
 ## find
@@ -30,7 +30,7 @@
 
 - name: make some directories
   file:
-      path: "{{ output_dir_test }}/{{ item }}"
+      path: "{{ remote_tmp_dir_test }}/{{ item }}"
       state: directory
   with_items:
       - a/b/c/d
@@ -38,7 +38,7 @@
 
 - name: make some files
   copy:
-      dest: "{{ output_dir_test }}/{{ item }}"
+      dest: "{{ remote_tmp_dir_test }}/{{ item }}"
       content: 'data'
   with_items:
       - a/1.txt
@@ -52,7 +52,7 @@
 
 - name: find the directories
   find:
-      paths: "{{ output_dir_test }}"
+      paths: "{{ remote_tmp_dir_test }}"
       file_type: directory
       recurse: yes
   register: find_test0
@@ -70,7 +70,7 @@
 
 - name: find the xml and img files
   find:
-      paths: "{{ output_dir_test }}"
+      paths: "{{ remote_tmp_dir_test }}"
       file_type: file
       patterns: "*.xml,*.img"
       recurse: yes
@@ -84,7 +84,7 @@
 
 - name: find the xml file
   find:
-      paths: "{{ output_dir_test }}"
+      paths: "{{ remote_tmp_dir_test }}"
       patterns: "*.xml"
       recurse: yes
   register: find_test2
@@ -98,7 +98,7 @@
 
 - name: exclude with regex
   find:
-    paths: "{{ output_dir_test }}"
+    paths: "{{ remote_tmp_dir_test }}"
     recurse: yes
     use_regex: true
     exclude: .*\.ogg
